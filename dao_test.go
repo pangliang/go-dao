@@ -5,6 +5,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"reflect"
 	"strings"
+	"database/sql"
+	"os"
 )
 
 type User struct {
@@ -23,10 +25,11 @@ id INTEGER NOT NULL,
 pwd TEXT DEFAULT '' NOT NULL,
 name TEXT DEFAULT '' NOT NULL
 );
-delete from user;
 `
 
 func TestParseStruct(t *testing.T) {
+
+	Cacheable = false
 
 	user := User{}
 	structInfo, err := ParseStruct(user)
@@ -103,6 +106,7 @@ func TestFieldsValue(t *testing.T) {
 }
 
 func TestDaoList(t *testing.T) {
+	os.Remove(dbFile)
 	db, err := Open("sqlite3", dbFile)
 	if err != nil {
 		t.Fatalf("error:%s\n", err)
@@ -144,6 +148,16 @@ func TestDaoList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error:%s\n", err)
 	}
+	for _, user := range userList {
+		if user != m[user.Id] {
+			t.Fatalf("List fail expedcted %v, but got :%v\n", m[user.Id], user)
+		}
+	}
+
+	err = db.List(&userList, "order by id")
+	if err != nil {
+		t.Fatalf("error:%s\n", err)
+	}
 	if userList[0] != m[1] {
 		t.Fatalf("List fail expedcted %v, but got :%v\n", m[1], userList[0])
 	}
@@ -176,3 +190,102 @@ func TestDaoList(t *testing.T) {
 		t.Fatalf("List fail expedcted %v, but got :%v\n", m[1], one[0])
 	}
 }
+
+func BenchmarkParseStruct(b *testing.B) {
+	type Apple struct {
+		p1 int
+		p2 int
+		p3 int
+		p4 int
+		p5 int
+		p6 int
+		p7 int
+		p8 int
+		p9 int
+		p10 int
+	}
+	apple := Apple{}
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_, err := ParseStruct(apple)
+		if err != nil {
+			b.Fatalf("error:%s\n", err)
+		}
+	}
+}
+
+func BenchmarkParseStructUseCache(b *testing.B) {
+	Cacheable = true
+	type Apple struct {
+		p1 int
+		p2 int
+		p3 int
+		p4 int
+		p5 int
+		p6 int
+		p7 int
+		p8 int
+		p9 int
+		p10 int
+	}
+	apple := Apple{}
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_, err := ParseStruct(apple)
+		if err != nil {
+			b.Fatalf("error:%s\n", err)
+		}
+	}
+	b.StopTimer()
+
+	Cacheable = false
+	CleanStructCache()
+}
+
+// 使用原生sql的基准测试, 作为对照
+func BenchmarkInsertReference(b *testing.B) {
+	os.Remove(dbFile)
+	db, err := sql.Open("sqlite3", dbFile)
+	if err != nil {
+		b.Fatalf("error:%s\n", err)
+	}
+	defer db.Close()
+	_, err = db.Exec(ddl);
+	if err != nil {
+		b.Fatalf("error:%s\n", err)
+	}
+	b.ResetTimer()
+
+	sql := "insert into user (id, name, pwd) values (? , ?, ?)"
+	for i := 0; i < b.N; i++ {
+		_, err = db.Exec(sql, i, i, i)
+		if err != nil {
+			b.Fatalf("error:%s\n", err)
+		}
+	}
+}
+
+func BenchmarkInsert(b *testing.B) {
+	os.Remove(dbFile)
+	db, err := Open("sqlite3", dbFile)
+	if err != nil {
+		b.Fatalf("error:%s\n", err)
+	}
+	defer db.Close()
+	_, err = db.Exec(ddl);
+	if err != nil {
+		b.Fatalf("error:%s\n", err)
+	}
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		var user = User{uint32(i), string(i), string(i)}
+		_, err = db.Save(user)
+		if err != nil {
+			b.Fatalf("error:%s\n", err)
+		}
+	}
+}
+

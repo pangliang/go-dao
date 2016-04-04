@@ -4,9 +4,12 @@ import (
 	"strings"
 	"reflect"
 	"errors"
+	"fmt"
 )
 
 var Mapper = strings.ToLower
+var Cacheable = true
+var structInfoCache = make(map[string]StructInfo)
 
 type FieldInfo struct {
 	Name       string
@@ -57,6 +60,13 @@ func ParseStruct(v interface{}) (structInfo StructInfo, err error) {
 
 func ParseType(t reflect.Type) (structInfo StructInfo, err error) {
 
+	pkgPath := fmt.Sprintf("%v", t)
+	if Cacheable {
+		structInfo, ok := structInfoCache[pkgPath]
+		if ok {
+			return structInfo,nil
+		}
+	}
 	structInfo = StructInfo{}
 	structInfo.Name = t.Name()
 	structInfo.Type = t
@@ -77,5 +87,12 @@ func ParseType(t reflect.Type) (structInfo StructInfo, err error) {
 		structInfo.ColumnNames[i] = fieldInfo.ColumnName
 	}
 
+	if Cacheable {
+		structInfoCache[pkgPath] = structInfo
+	}
 	return
+}
+
+func CleanStructCache() {
+	structInfoCache = make(map[string]StructInfo)
 }
