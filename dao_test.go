@@ -42,7 +42,7 @@ func TestParseStruct(t *testing.T) {
 		Columns     :map[string]FieldInfo{
 			"id":FieldInfo{Name:"Id", ColumnName:"id", Type:reflect.TypeOf(user.Id)},
 			"name":FieldInfo{Name:"Name", ColumnName:"name", Type:reflect.TypeOf(user.Name)},
-			"pwd":FieldInfo{Name:"Pwd", ColumnName:"pwd",Type:reflect.TypeOf(user.Pwd)},
+			"pwd":FieldInfo{Name:"Pwd", ColumnName:"pwd", Type:reflect.TypeOf(user.Pwd)},
 		},
 	}
 	if !reflect.DeepEqual(structInfo, expected) {
@@ -70,7 +70,7 @@ func TestCustomMapper(t *testing.T) {
 		Columns     :map[string]FieldInfo{
 			"d":FieldInfo{Name:"Id", ColumnName:"d", Type:reflect.TypeOf(user.Id)},
 			"ame":FieldInfo{Name:"Name", ColumnName:"ame", Type:reflect.TypeOf(user.Name)},
-			"wd":FieldInfo{Name:"Pwd", ColumnName:"wd",Type:reflect.TypeOf(user.Pwd)},
+			"wd":FieldInfo{Name:"Pwd", ColumnName:"wd", Type:reflect.TypeOf(user.Pwd)},
 		},
 	}
 	if !reflect.DeepEqual(structInfo, expected) {
@@ -130,7 +130,7 @@ func TestDaoList(t *testing.T) {
 	}
 
 	var userList []User
-	err = db.List(&userList, nil)
+	err = db.List(&userList)
 	if err != nil {
 		t.Fatalf("error:%s\n", err)
 	}
@@ -138,5 +138,41 @@ func TestDaoList(t *testing.T) {
 		if user != m[user.Id] {
 			t.Fatalf("List fail expedcted %v, but got :%v\n", m[user.Id], user)
 		}
+	}
+
+	err = db.List(&userList, "where name=? or pwd=?", "tom", "jake123")
+	if err != nil {
+		t.Fatalf("error:%s\n", err)
+	}
+	if userList[0] != m[1] {
+		t.Fatalf("List fail expedcted %v, but got :%v\n", m[1], userList[0])
+	}
+	if userList[1] != m[2] {
+		t.Fatalf("List fail expedcted %v, but got :%v\n", m[2], userList[1])
+	}
+
+	err = db.List(&userList, "order by id desc")
+	if err != nil {
+		t.Fatalf("error:%s\n", err)
+	}
+	if userList[0] != m[2] {
+		t.Fatalf("List fail expedcted %v, but got :%v\n", m[2], userList[0])
+	}
+	if userList[1] != m[1] {
+		t.Fatalf("List fail expedcted %v, but got :%v\n", m[1], userList[1])
+	}
+
+	var one []User
+	err = db.List(&one, "where name=?", "tom")
+	if err != nil {
+		t.Fatalf("error:%s\n", err)
+	}
+
+	if len(one) != 1 {
+		t.Fatalf("List fail expedcted 1 obj, but got :%v\n", len(one))
+	}
+
+	if one[0] != m[1] {
+		t.Fatalf("List fail expedcted %v, but got :%v\n", m[1], one[0])
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"bytes"
 	"errors"
+	"log"
 )
 
 type DB struct {
@@ -58,7 +59,7 @@ func (db *DB) Save(v interface{}) (result sql.Result, err error) {
 	return
 }
 
-func (db *DB) List(v interface{}, where interface{}, args...interface{}) error {
+func (db *DB) List(v interface{}, args...interface{}) error {
 
 	if (reflect.TypeOf(v).Kind() != reflect.Ptr) {
 		return errors.New("must pass a slice pointer, like &[]xxx")
@@ -76,11 +77,14 @@ func (db *DB) List(v interface{}, where interface{}, args...interface{}) error {
 	buffer.WriteString(strings.Join(structInfo.ColumnNames, ","))
 	buffer.WriteString(" from ")
 	buffer.WriteString(structInfo.TableName)
-	if where != nil {
-		buffer.WriteString(where.(string))
+	if args != nil {
+		buffer.WriteString(" ")
+		buffer.WriteString(args[0].(string))
+		args = args[1:]
 	}
 
 	sql := buffer.String()
+	log.Printf("%s\n", sql)
 	rows, err := db.Query(sql, args...)
 	if err != nil {
 		return err
