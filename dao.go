@@ -4,25 +4,84 @@ import (
 	"database/sql"
 	"reflect"
 	"strings"
-	"fmt"
-
+	"bytes"
+	"errors"
 )
 
-func List(v interface{}, where string, db sql.DB) error {
+type DB struct {
+	*sql.DB
+	driverName string
+}
 
+func Open(driverName, dataSourceName string) (*DB, error) {
+	db, err := sql.Open(driverName, dataSourceName)
+	if err != nil {
+		return nil, err
+	}
+	return &DB{DB: db, driverName: driverName}, nil
+}
+
+func (db *DB) Save(v interface{}) (result sql.Result, err error) {
+
+	structInfo, err := ParseStruct(v)
+	if err != nil {
+		return
+	}
+
+	sql := bytes.NewBufferString("insert into ")
+	sql.WriteString(structInfo.TableName)
+	sql.WriteString("(")
+	sql.WriteString(strings.Join(structInfo.ColumnNames, ","))
+	sql.WriteString(") values (")
+
+	bindStr := strings.Repeat("?,", len(structInfo.ColumnNames))
+	sql.WriteString(bindStr[:len(bindStr) - 1])
+	sql.WriteString(")")
+
+	fieldValues, err := FieldValue(v)
+	if err != nil {
+		return
+	}
+
+	args := make([]interface{}, 0, len(structInfo.ColumnNames))
+	for _, column := range structInfo.ColumnNames {
+		fieldInfo, ok := structInfo.Columns[column]
+		if !ok {
+			err = errors.New("column " + column + " mismatch")
+			return
+		}
+		args = append(args, fieldValues[fieldInfo.Name].Interface())
+	}
+
+	result, err = db.Exec(sql.String(), args...)
+
+	return
+}
+
+func (db *DB) List(v interface{}, where interface{}, args...interface{}) error {
+
+	if (reflect.TypeOf(v).Kind() != reflect.Ptr) {
+		return errors.New("must pass a slice pointer, like &[]xxx")
+	}
 
 	listPtr := reflect.Indirect(reflect.ValueOf(v))
-	daoType := listPtr.Type().Elem()
-	listValue := reflect.MakeSlice(listPtr.Type(),0,1)
+	listValue := reflect.MakeSlice(listPtr.Type(), 0, 1)
 
-	tableName := strings.ToUpper(daoType.Name())
-	sql := "select * from " + tableName
-	if where != "" {
-		sql += "where " + where
-
+	structInfo, err := ParseType(listValue.Type().Elem())
+	if err != nil {
+		return err
 	}
-	fmt.Printf("sql:%s\n", sql)
-	rows, err := db.Query(sql)
+
+	buffer := bytes.NewBufferString("select ")
+	buffer.WriteString(strings.Join(structInfo.ColumnNames, ","))
+	buffer.WriteString(" from ")
+	buffer.WriteString(structInfo.TableName)
+	if where != nil {
+		buffer.WriteString(where.(string))
+	}
+
+	sql := buffer.String()
+	rows, err := db.Query(sql, args...)
 	if err != nil {
 		return err
 
@@ -30,24 +89,31 @@ func List(v interface{}, where string, db sql.DB) error {
 	defer rows.Close()
 
 	for rows.Next() {
-		fieldsSlice := make([]interface{}, 0, 1)
-		for i := 0; i < daoType.NumField(); i++ {
-			fieldValue := reflect.New(daoType.Field(i).Type)
-			fieldsSlice = append(fieldsSlice, fieldValue.Interface())
+		columns, _ := rows.Columns()
+		fieldsSlice := make([]interface{}, len(columns))
 
+		for i, column := range columns {
+			fieldInfo, ok := structInfo.Columns[column]
+			if !ok {
+				return errors.New("column " + column + " mismatch")
+			}
+			fieldValue := reflect.New(fieldInfo.Type)
+			fieldsSlice[i] = fieldValue.Interface()
 		}
+
 		err = rows.Scan(fieldsSlice...)
 		if err != nil {
 			return err
-
 		}
 
-		obj := reflect.New(daoType).Elem()
-		for i := 0; i < daoType.NumField(); i++ {
-			obj.Field(i).Set(reflect.Indirect(reflect.ValueOf(fieldsSlice[i])))
-
+		obj := reflect.New(structInfo.Type).Elem()
+		for i, column := range columns {
+			fieldInfo, ok := structInfo.Columns[column]
+			if !ok {
+				return errors.New("column " + column + " mismatch")
+			}
+			obj.FieldByName(fieldInfo.Name).Set(reflect.Indirect(reflect.ValueOf(fieldsSlice[i])))
 		}
-		fmt.Println("obj", obj)
 		listValue = reflect.Append(listValue, obj)
 
 	}
