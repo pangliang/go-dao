@@ -4,7 +4,6 @@ import (
 	"testing"
 	_ "github.com/mattn/go-sqlite3"
 	"reflect"
-	"strings"
 	"database/sql"
 	"os"
 )
@@ -28,11 +27,9 @@ name TEXT DEFAULT '' NOT NULL
 `
 
 func TestParseStruct(t *testing.T) {
-
-	Cacheable = false
-
+	reader := DefaultReader()
 	user := User{}
-	structInfo, err := ParseStruct(user)
+	structInfo, err := reader.ParseStruct(user)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,13 +51,14 @@ func TestParseStruct(t *testing.T) {
 }
 
 func TestCustomMapper(t *testing.T) {
+	reader := DefaultReader()
 
-	Mapper = func(s string) string {
+	reader.SetMapper(func(s string) string {
 		return s[1:]
-	}
+	})
 
 	user := User{}
-	structInfo, err := ParseStruct(user)
+	structInfo, err := reader.ParseStruct(user)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,15 +77,12 @@ func TestCustomMapper(t *testing.T) {
 	if !reflect.DeepEqual(structInfo, expected) {
 		t.Fatalf("ParseStruct fail, \ngot:     %s\nexpected:%v\n", structInfo, expected)
 	}
-
-	//reset Mapper
-	Mapper = strings.ToLower
 }
 
 func TestFieldsValue(t *testing.T) {
-
+	reader := DefaultReader()
 	user := User{1, "tom", "tom123"}
-	fieldsValue, err := FieldValue(user)
+	fieldsValue, err := reader.FieldValue(user)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,23 +187,25 @@ func TestDaoList(t *testing.T) {
 }
 
 func BenchmarkParseStruct(b *testing.B) {
+	reader := DefaultReader()
+	reader.cacheable = false
 	type Apple struct {
-		p1 int
-		p2 int
-		p3 int
-		p4 int
-		p5 int
-		p6 int
-		p7 int
-		p8 int
-		p9 int
+		p1  int
+		p2  int
+		p3  int
+		p4  int
+		p5  int
+		p6  int
+		p7  int
+		p8  int
+		p9  int
 		p10 int
 	}
 	apple := Apple{}
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, err := ParseStruct(apple)
+		_, err := reader.ParseStruct(apple)
 		if err != nil {
 			b.Fatalf("error:%s\n", err)
 		}
@@ -216,32 +213,29 @@ func BenchmarkParseStruct(b *testing.B) {
 }
 
 func BenchmarkParseStructUseCache(b *testing.B) {
-	Cacheable = true
+	reader := DefaultReader()
 	type Apple struct {
-		p1 int
-		p2 int
-		p3 int
-		p4 int
-		p5 int
-		p6 int
-		p7 int
-		p8 int
-		p9 int
+		p1  int
+		p2  int
+		p3  int
+		p4  int
+		p5  int
+		p6  int
+		p7  int
+		p8  int
+		p9  int
 		p10 int
 	}
 	apple := Apple{}
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, err := ParseStruct(apple)
+		_, err := reader.ParseStruct(apple)
 		if err != nil {
 			b.Fatalf("error:%s\n", err)
 		}
 	}
 	b.StopTimer()
-
-	Cacheable = false
-	CleanStructCache()
 }
 
 // 使用原生sql的基准测试, 作为对照

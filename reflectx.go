@@ -4,12 +4,19 @@ import (
 	"strings"
 	"reflect"
 	"errors"
-	"fmt"
+	"sync"
 )
 
-var Mapper = strings.ToLower
-var Cacheable = true
-var structInfoCache = make(map[string]StructInfo)
+type StructInfoReader struct {
+	mapper    func(s string) string
+	cacheable bool
+	cache     map[reflect.Type]StructInfo
+	mutex     sync.Mutex
+}
+
+func DefaultReader() StructInfoReader {
+	return StructInfoReader{mapper:strings.ToLower, cacheable:true, cache:make(map[reflect.Type]StructInfo)}
+}
 
 type FieldInfo struct {
 	Name       string
@@ -26,7 +33,7 @@ type StructInfo struct {
 	ColumnNames []string
 }
 
-func FieldValue(v interface{}) (fieldValue map[string]reflect.Value, err error) {
+func (reader *StructInfoReader) FieldValue(v interface{}) (fieldValue map[string]reflect.Value, err error) {
 	value := reflect.ValueOf(v)
 
 	if value.Kind() != reflect.Struct {
@@ -45,7 +52,7 @@ func FieldValue(v interface{}) (fieldValue map[string]reflect.Value, err error) 
 	return
 }
 
-func ParseStruct(v interface{}) (structInfo StructInfo, err error) {
+func (reader *StructInfoReader) ParseStruct(v interface{}) (structInfo StructInfo, err error) {
 	value := reflect.ValueOf(v)
 
 	if value.Kind() != reflect.Struct {
@@ -55,22 +62,24 @@ func ParseStruct(v interface{}) (structInfo StructInfo, err error) {
 
 	t := value.Type()
 
-	return ParseType(t)
+	return reader.ParseType(t)
 }
 
-func ParseType(t reflect.Type) (structInfo StructInfo, err error) {
+func (reader *StructInfoReader) ParseType(t reflect.Type) (structInfo StructInfo, err error) {
 
-	pkgPath := fmt.Sprintf("%v", t)
-	if Cacheable {
-		structInfo, ok := structInfoCache[pkgPath]
+	if reader.cacheable {
+		reader.mutex.Lock()
+		structInfo, ok := reader.cache[t]
 		if ok {
-			return structInfo,nil
+			reader.mutex.Unlock()
+			return structInfo, nil
 		}
+		reader.mutex.Unlock()
 	}
 	structInfo = StructInfo{}
 	structInfo.Name = t.Name()
 	structInfo.Type = t
-	structInfo.TableName = Mapper(t.Name())
+	structInfo.TableName = reader.mapper(t.Name())
 	//structInfo.Fields = make(map[string]FieldInfo, t.NumField())
 	structInfo.Columns = make(map[string]FieldInfo, t.NumField())
 	structInfo.ColumnNames = make([]string, t.NumField())
@@ -79,7 +88,7 @@ func ParseType(t reflect.Type) (structInfo StructInfo, err error) {
 		fname := t.Field(i).Name
 		fieldInfo := FieldInfo{}
 		fieldInfo.Name = fname
-		fieldInfo.ColumnName = Mapper(fname)
+		fieldInfo.ColumnName = reader.mapper(fname)
 		fieldInfo.Type = t.Field(i).Type
 
 		//structInfo.Fields[fname] = fieldInfo
@@ -87,12 +96,19 @@ func ParseType(t reflect.Type) (structInfo StructInfo, err error) {
 		structInfo.ColumnNames[i] = fieldInfo.ColumnName
 	}
 
-	if Cacheable {
-		structInfoCache[pkgPath] = structInfo
+	if reader.cacheable {
+		reader.mutex.Lock()
+		reader.cache[t] = structInfo
+		reader.mutex.Unlock()
 	}
 	return
 }
 
-func CleanStructCache() {
-	structInfoCache = make(map[string]StructInfo)
+func (reader *StructInfoReader) CleanStructCache() {
+	reader.cache = make(map[reflect.Type]StructInfo)
+}
+
+func (reader *StructInfoReader) SetMapper(m func(s string) string) {
+	reader.mapper = m
+	reader.CleanStructCache()
 }

@@ -12,6 +12,7 @@ import (
 type DB struct {
 	*sql.DB
 	driverName string
+	reader StructInfoReader
 }
 
 func Open(driverName, dataSourceName string) (*DB, error) {
@@ -19,12 +20,12 @@ func Open(driverName, dataSourceName string) (*DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &DB{DB: db, driverName: driverName}, nil
+	return &DB{DB: db, driverName: driverName, reader:DefaultReader()}, nil
 }
 
 func (db *DB) Save(v interface{}) (result sql.Result, err error) {
 
-	structInfo, err := ParseStruct(v)
+	structInfo, err := db.reader.ParseStruct(v)
 	if err != nil {
 		return
 	}
@@ -39,7 +40,7 @@ func (db *DB) Save(v interface{}) (result sql.Result, err error) {
 	sql.WriteString(bindStr[:len(bindStr) - 1])
 	sql.WriteString(")")
 
-	fieldValues, err := FieldValue(v)
+	fieldValues, err := db.reader.FieldValue(v)
 	if err != nil {
 		return
 	}
@@ -68,7 +69,7 @@ func (db *DB) List(v interface{}, args...interface{}) error {
 	listPtr := reflect.Indirect(reflect.ValueOf(v))
 	listValue := reflect.MakeSlice(listPtr.Type(), 0, 1)
 
-	structInfo, err := ParseType(listValue.Type().Elem())
+	structInfo, err := db.reader.ParseType(listValue.Type().Elem())
 	if err != nil {
 		return err
 	}
