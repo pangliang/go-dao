@@ -7,15 +7,15 @@ import (
 	"sync"
 )
 
-type StructInfoReader struct {
+type StructReader struct {
 	mapper    func(s string) string
 	cacheable bool
 	cache     map[reflect.Type]StructInfo
 	mutex     sync.Mutex
 }
 
-func DefaultReader() StructInfoReader {
-	return StructInfoReader{mapper:strings.ToLower, cacheable:true, cache:make(map[reflect.Type]StructInfo)}
+func DefaultReader() StructReader {
+	return StructReader{mapper:strings.ToLower, cacheable:true, cache:make(map[reflect.Type]StructInfo)}
 }
 
 type FieldInfo struct {
@@ -33,7 +33,7 @@ type StructInfo struct {
 	ColumnNames []string
 }
 
-func (reader *StructInfoReader) FieldValue(v interface{}) (fieldValue map[string]reflect.Value, err error) {
+func (reader *StructReader) FieldValue(v interface{}) (fieldValue map[string]reflect.Value, err error) {
 	value := reflect.ValueOf(v)
 
 	if value.Kind() != reflect.Struct {
@@ -52,7 +52,7 @@ func (reader *StructInfoReader) FieldValue(v interface{}) (fieldValue map[string
 	return
 }
 
-func (reader *StructInfoReader) ParseStruct(v interface{}) (structInfo StructInfo, err error) {
+func (reader *StructReader) ParseStruct(v interface{}) (structInfo StructInfo, err error) {
 	value := reflect.ValueOf(v)
 
 	if value.Kind() != reflect.Struct {
@@ -65,7 +65,7 @@ func (reader *StructInfoReader) ParseStruct(v interface{}) (structInfo StructInf
 	return reader.ParseType(t)
 }
 
-func (reader *StructInfoReader) ParseType(t reflect.Type) (structInfo StructInfo, err error) {
+func (reader *StructReader) ParseType(t reflect.Type) (structInfo StructInfo, err error) {
 
 	if reader.cacheable {
 		reader.mutex.Lock()
@@ -104,11 +104,11 @@ func (reader *StructInfoReader) ParseType(t reflect.Type) (structInfo StructInfo
 	return
 }
 
-func (reader *StructInfoReader) CleanStructCache() {
+func (reader *StructReader) CleanStructCache() {
 	reader.cache = make(map[reflect.Type]StructInfo)
 }
 
-func (reader *StructInfoReader) SetMapper(m func(s string) string) {
+func (reader *StructReader) SetMapper(m func(s string) string) {
 	reader.mapper = m
 	reader.CleanStructCache()
 }

@@ -12,7 +12,7 @@ import (
 type DB struct {
 	*sql.DB
 	driverName string
-	reader StructInfoReader
+	reader StructReader
 }
 
 func Open(driverName, dataSourceName string) (*DB, error) {

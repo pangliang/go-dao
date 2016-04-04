@@ -5,6 +5,22 @@
 类似的库有: [sqlx](https://github.com/jmoiron/sqlx) ,但是它是把查询结果集*Row 装配成[]Sturct, sql语句还是需要手写
 
 
+### Example
+
+```go
+db, err := dao.Open("sqlite3", dbFile)
+...
+
+db.Save(User{1, "tom", "tom123"})
+db.Save(User{2, "jake", "jake123"})
+
+var list []User
+err = db.List(&list)
+...
+fmt.Printf("%v\n", list)
+//Output: [{1 tom tom123} {2 jake jake123}]
+```
+
 ### Benchmark
 
 ```
