@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"errors"
 	"log"
+	"strings"
 )
 
 type DB struct {
@@ -33,19 +34,52 @@ func (db *DB) Save(v interface{}) (result sql.Result, err error) {
 		return
 	}
 
-	args := make([]interface{}, 0, len(tableInfo.ColumnNames))
-	for _, column := range tableInfo.ColumnNames {
+	values := make([]interface{}, len(tableInfo.ColumnNames))
+	for i, column := range tableInfo.ColumnNames {
 		columnInfo, ok := tableInfo.Columns[column]
 		if !ok {
 			err = errors.New("column " + column + " mismatch")
 			return
 		}
-		args = append(args, fieldValues[columnInfo.FieldName].Interface())
+		values[i] = fieldValues[columnInfo.FieldName].Interface()
 	}
 
 	sql := tableInfo.Sqls[SQL_INSERT]
-	result, err = db.Exec(sql, args...)
+	result, err = db.Exec(sql, values...)
 
+	return
+}
+
+func (db *DB) Update(v interface{}, args...interface{}) (result sql.Result, err error) {
+
+	if args == nil || strings.Index(args[0].(string), "where") != 0 {
+		return nil, errors.New("must set where condition")
+	}
+
+	tableInfo, err := db.builder.ParseStruct(v)
+	if err != nil {
+		return
+	}
+
+	fieldValues, err := FieldValue(v)
+	if err != nil {
+		return
+	}
+
+	values := make([]interface{}, len(tableInfo.ColumnNames), len(tableInfo.ColumnNames) + len(args) - 1)
+	for i, column := range tableInfo.ColumnNames {
+		columnInfo, ok := tableInfo.Columns[column]
+		if !ok {
+			err = errors.New("column " + column + " mismatch")
+			return
+		}
+		values[i] = fieldValues[columnInfo.FieldName].Interface()
+	}
+
+	sql := tableInfo.Sqls[SQL_UPDATE]
+	sql += args[0].(string)
+	values = append(values, args[1:]...)
+	result, err = db.Exec(sql, values...)
 	return
 }
 

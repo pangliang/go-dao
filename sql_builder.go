@@ -9,6 +9,7 @@ import (
 
 const SQL_INSERT = "insert"
 const SQL_SELECT = "select"
+const SQL_UPDATE = "update"
 
 var sqls = map[string]func(tableInfo TableInfo) (sql string, err error){
 	SQL_INSERT:func(tableInfo TableInfo) (sql string, err error){
@@ -34,6 +35,20 @@ var sqls = map[string]func(tableInfo TableInfo) (sql string, err error){
 
 		sql = buf.String()
 
+		return sql, nil
+	},
+	SQL_UPDATE: func(tableInfo TableInfo)(sql string, err error){
+		buf := bytes.NewBufferString("UPDATE ")
+		buf.WriteString(tableInfo.TableName)
+		buf.WriteString(" SET ")
+
+		for _,column := range tableInfo.ColumnNames {
+			buf.WriteString(column)
+			buf.WriteString("=?,")
+		}
+
+		sql = buf.String()
+		sql = sql[:len(sql)-1]
 		return sql, nil
 	},
 }

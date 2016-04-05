@@ -9,12 +9,6 @@ import (
 	"fmt"
 )
 
-type User struct {
-	Id   uint32
-	Name string
-	Pwd  string
-}
-
 const dbFile = "./test.db"
 
 const ddl = `
@@ -39,11 +33,11 @@ func TestFieldsValue(t *testing.T) {
 	}
 
 	if fieldsValue["Name"].Interface() != reflect.ValueOf("tom").Interface() {
-		t.Fatalf("fieldsValue name got %v \n", fieldsValue["name"])
+		t.Fatalf("fieldsValue name got %#v \n", fieldsValue["name"])
 	}
 
 	if fieldsValue["Pwd"].Interface() != reflect.ValueOf("tom123").Interface() {
-		t.Fatalf("fieldsValue pwd got %v \n", fieldsValue["pwd"])
+		t.Fatalf("fieldsValue pwd got %#v \n", fieldsValue["pwd"])
 	}
 }
 
@@ -71,7 +65,7 @@ func TestDaoList(t *testing.T) {
 
 		rowAffected, _ := result.RowsAffected()
 		if rowAffected != 1 {
-			t.Fatalf("expected RowsAffected 1, but got :%v\n", rowAffected)
+			t.Fatalf("expected RowsAffected 1, but got :%#v\n", rowAffected)
 		}
 	}
 
@@ -82,7 +76,7 @@ func TestDaoList(t *testing.T) {
 	}
 	for _, user := range userList {
 		if user != m[user.Id] {
-			t.Fatalf("List fail expedcted %v, but got :%v\n", m[user.Id], user)
+			t.Fatalf("List fail expedcted %#v, but got :%#v\n", m[user.Id], user)
 		}
 	}
 
@@ -92,7 +86,7 @@ func TestDaoList(t *testing.T) {
 	}
 	for _, user := range userList {
 		if user != m[user.Id] {
-			t.Fatalf("List fail expedcted %v, but got :%v\n", m[user.Id], user)
+			t.Fatalf("List fail expedcted %#v, but got :%#v\n", m[user.Id], user)
 		}
 	}
 
@@ -100,24 +94,24 @@ func TestDaoList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error:%s\n", err)
 	}
-	fmt.Printf("%#v\n",userList)
+	fmt.Printf("%#v\n", userList)
 	if userList[0] != m[1] {
 		t.Fatalf("List fail expedcted %#v, but got :%#v\n", m[1], userList[0])
 	}
 	if userList[1] != m[2] {
-		t.Fatalf("List fail expedcted %v, but got :%v\n", m[2], userList[1])
+		t.Fatalf("List fail expedcted %#v, but got :%#v\n", m[2], userList[1])
 	}
 
 	err = db.List(&userList, "order by id desc")
-	fmt.Printf("%#v\n",userList)
+	fmt.Printf("%#v\n", userList)
 	if err != nil {
 		t.Fatalf("error:%s\n", err)
 	}
 	if userList[0] != m[2] {
-		t.Fatalf("List fail expedcted %v, but got :%v\n", m[2], userList[0])
+		t.Fatalf("List fail expedcted %#v, but got :%#v\n", m[2], userList[0])
 	}
 	if userList[1] != m[1] {
-		t.Fatalf("List fail expedcted %v, but got :%v\n", m[1], userList[1])
+		t.Fatalf("List fail expedcted %#v, but got :%#v\n", m[1], userList[1])
 	}
 
 	var one []User
@@ -127,11 +121,50 @@ func TestDaoList(t *testing.T) {
 	}
 
 	if len(one) != 1 {
-		t.Fatalf("List fail expedcted 1 obj, but got :%v\n", len(one))
+		t.Fatalf("List fail expedcted 1 obj, but got :%#v\n", len(one))
 	}
 
 	if one[0] != m[1] {
-		t.Fatalf("List fail expedcted %v, but got :%v\n", m[1], one[0])
+		t.Fatalf("List fail expedcted %#v, but got :%#v\n", m[1], one[0])
+	}
+}
+
+func TestUpdate(t *testing.T) {
+	os.Remove(dbFile)
+	db, err := Open("sqlite3", dbFile)
+	if err != nil {
+		t.Fatalf("error:%s\n", err)
+	}
+	defer db.Close()
+	_, err = db.Exec(ddl);
+	if err != nil {
+		t.Fatalf("error:%s\n", err)
+	}
+
+	m := map[uint32]User{
+		1:User{1, "tom", "tom123"},
+		2:User{2, "jake", "jake123"},
+	}
+	for _, user := range m {
+		db.Save(user)
+	}
+
+	user := m[1]
+	user.Name = "tom99"
+	db.Update(user, "where id=?", 1)
+
+	var list []User
+	db.List(&list, "order by id")
+	if list[0] != user {
+		t.Fatalf("Update fail expedcted %#v, but got :%#v\n", user, list[0])
+	}
+	if list[1] != m[2] {
+		t.Fatalf("Update fail expedcted %#v, but got :%#v\n", m[2], list[1])
+	}
+
+	_, err = db.Update(user)
+	if err == nil {
+		t.Fatalf("Update not where condition")
 	}
 }
 

@@ -8,17 +8,25 @@
 ### Example
 
 ```go
-db, err := dao.Open("sqlite3", dbFile)
-...
+db, _ := dao.Open("sqlite3", dbFile)
 
-db.Save(User{1, "tom", "tom123"})
-db.Save(User{2, "jake", "jake123"})
+tom := User{1, "tom", "tom123"}
+jake := User{2, "jake", "jake123"}
+db.Save(tom)
+db.Save(jake)
 
 var list []User
 err = db.List(&list)
-...
-fmt.Printf("%v\n", list)
-//Output: [{1 tom tom123} {2 jake jake123}]
+
+fmt.Printf("%#v\n", list)
+//Output: []dao.User{dao.User{Id:0x1, Name:"tom", Pwd:"tom123"}, dao.User{Id:0x2, Name:"jake", Pwd:"jake123"}}
+
+tom.Name = "tom99"
+db.Update(tom,"where id=?",1)
+
+err = db.List(&list)
+fmt.Printf("%#v\n", list)
+//Output: []dao.User{dao.User{Id:0x1, Name:"tom99", Pwd:"tom123"}, dao.User{Id:0x2, Name:"jake", Pwd:"jake123"}}
 ```
 
 ### Benchmark

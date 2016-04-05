@@ -5,6 +5,12 @@ import (
 	"reflect"
 )
 
+type User struct {
+	Id   uint32
+	Name string
+	Pwd  string
+}
+
 func TestParseStruct(t *testing.T) {
 	reader := DefaultBuilder()
 	user := User{}
@@ -26,6 +32,7 @@ func TestParseStruct(t *testing.T) {
 		Sqls:map[string]string{
 			SQL_INSERT:"INSERT INTO user(id,name,pwd) VALUES (?,?,?)",
 			SQL_SELECT:"SELECT id,name,pwd FROM user",
+			SQL_UPDATE:"UPDATE user SET id=?,name=?,pwd=?",
 		},
 	}
 	if !reflect.DeepEqual(tableInfo, expected) {
@@ -59,6 +66,7 @@ func TestCustomMapper(t *testing.T) {
 		Sqls:map[string]string{
 			SQL_INSERT:"INSERT INTO ser(d,ame,wd) VALUES (?,?,?)",
 			SQL_SELECT:"SELECT d,ame,wd FROM ser",
+			SQL_UPDATE:"UPDATE ser SET d=?,ame=?,wd=?",
 		},
 	}
 	if !reflect.DeepEqual(tableInfo, expected) {
