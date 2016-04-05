@@ -5,6 +5,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 	"database/sql"
 	"os"
+	"reflect"
+	"fmt"
 )
 
 type User struct {
@@ -24,6 +26,26 @@ pwd TEXT DEFAULT '' NOT NULL,
 name TEXT DEFAULT '' NOT NULL
 );
 `
+
+func TestFieldsValue(t *testing.T) {
+	user := User{1, "tom", "tom123"}
+	fieldsValue, err := FieldValue(user)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if fieldsValue["Id"].Interface() != reflect.ValueOf(uint32(1)).Interface() {
+		t.Fatalf("fieldsValue id got %p \n", fieldsValue["id"].Interface())
+	}
+
+	if fieldsValue["Name"].Interface() != reflect.ValueOf("tom").Interface() {
+		t.Fatalf("fieldsValue name got %v \n", fieldsValue["name"])
+	}
+
+	if fieldsValue["Pwd"].Interface() != reflect.ValueOf("tom123").Interface() {
+		t.Fatalf("fieldsValue pwd got %v \n", fieldsValue["pwd"])
+	}
+}
 
 func TestDaoList(t *testing.T) {
 	os.Remove(dbFile)
@@ -78,14 +100,16 @@ func TestDaoList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error:%s\n", err)
 	}
+	fmt.Printf("%#v\n",userList)
 	if userList[0] != m[1] {
-		t.Fatalf("List fail expedcted %v, but got :%v\n", m[1], userList[0])
+		t.Fatalf("List fail expedcted %#v, but got :%#v\n", m[1], userList[0])
 	}
 	if userList[1] != m[2] {
 		t.Fatalf("List fail expedcted %v, but got :%v\n", m[2], userList[1])
 	}
 
 	err = db.List(&userList, "order by id desc")
+	fmt.Printf("%#v\n",userList)
 	if err != nil {
 		t.Fatalf("error:%s\n", err)
 	}
