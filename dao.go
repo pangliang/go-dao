@@ -107,7 +107,6 @@ func (db *DB) List(v interface{}, args...interface{}) error {
 	rows, err := db.Query(sql, args...)
 	if err != nil {
 		return err
-
 	}
 	defer rows.Close()
 
@@ -116,6 +115,7 @@ func (db *DB) List(v interface{}, args...interface{}) error {
 		fieldsSlice := make([]interface{}, len(columns))
 
 		for i, column := range columns {
+			column = db.builder.mapper(column)
 			columnInfo, ok := tableInfo.Columns[column]
 			if !ok {
 				return errors.New("column " + column + " mismatch")
@@ -131,6 +131,7 @@ func (db *DB) List(v interface{}, args...interface{}) error {
 
 		obj := reflect.New(tableInfo.StructType).Elem()
 		for i, column := range columns {
+			column = db.builder.mapper(column)
 			columnInfo, ok := tableInfo.Columns[column]
 			if !ok {
 				return errors.New("column " + column + " mismatch")
